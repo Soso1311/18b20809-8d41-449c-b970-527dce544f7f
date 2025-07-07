@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Send, Download, ArrowLeft, AlertCircle, Scale, FileText } from "lucide-react";
+import { Send, Download, ArrowLeft, AlertCircle, Scale, FileText, Wifi, WifiOff, Database } from "lucide-react";
 
 interface ChatMessage {
   type: "user" | "assistant";
@@ -17,15 +16,18 @@ interface LegalResult {
   penalty: string;
   nextSteps: string[];
   confidence: number;
+  source: "offline" | "online";
 }
 
 interface ChatInterfaceProps {
   selectedArea: string;
   language: "en" | "es";
   onBack: () => void;
+  isOffline: boolean;
+  isPremium: boolean;
 }
 
-const ChatInterface = ({ selectedArea, language, onBack }: ChatInterfaceProps) => {
+const ChatInterface = ({ selectedArea, language, onBack, isOffline, isPremium }: ChatInterfaceProps) => {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -39,9 +41,21 @@ const ChatInterface = ({ selectedArea, language, onBack }: ChatInterfaceProps) =
     setMessages(prev => [...prev, { type: "user", content: userMessage }]);
     setIsAnalyzing(true);
 
-    // Simulate AI analysis
+    // Simulate AI analysis with different results based on online/offline mode
     setTimeout(() => {
-      const mockResults: LegalResult[] = [
+      const mockResults: LegalResult[] = isOffline ? [
+        {
+          law: "Housing Act 1988 - Section 8 (Cached)",
+          description: "Landlord's grounds for possession - Limited offline analysis",
+          penalty: "Potential eviction if grounds are proven valid",
+          nextSteps: [
+            "Review your tenancy agreement",
+            "Contact local housing authority"
+          ],
+          confidence: 75,
+          source: "offline"
+        }
+      ] : [
         {
           law: "Housing Act 1988 - Section 8",
           description: "Landlord's grounds for possession of property let on assured tenancy",
@@ -52,7 +66,8 @@ const ChatInterface = ({ selectedArea, language, onBack }: ChatInterfaceProps) =
             "Contact local housing authority",
             "Consider legal representation if proceedings begin"
           ],
-          confidence: 92
+          confidence: 94,
+          source: "online"
         },
         {
           law: "Landlord and Tenant Act 1985 - Section 11",
@@ -63,21 +78,33 @@ const ChatInterface = ({ selectedArea, language, onBack }: ChatInterfaceProps) =
             "Send formal written notice to landlord",
             "Contact environmental health if issues persist"
           ],
-          confidence: 87
+          confidence: 89,
+          source: "online"
+        },
+        {
+          law: "Protection from Eviction Act 1977",
+          description: "Protection from unlawful eviction and harassment",
+          penalty: "Criminal prosecution for illegal eviction",
+          nextSteps: [
+            "Report harassment to local council",
+            "Seek immediate legal advice",
+            "Contact police if threatened"
+          ],
+          confidence: 85,
+          source: "online"
         }
       ];
 
       setLegalResults(mockResults);
       setMessages(prev => [...prev, { 
         type: "assistant", 
-        content: `I've analyzed your ${selectedArea} concern and found ${mockResults.length} potentially relevant legal provisions. Here are the key findings:` 
+        content: `I've analyzed your ${selectedArea} concern using ${isOffline ? 'cached offline data' : 'the complete UK legal database'} and found ${mockResults.length} potentially relevant legal provisions. ${isOffline ? 'For comprehensive analysis, connect to internet and upgrade to Premium.' : 'Here are the detailed findings:'}` 
       }]);
       setIsAnalyzing(false);
-    }, 2000);
+    }, isOffline ? 1000 : 3000);
   };
 
   const handleDownloadReport = () => {
-    // Mock download functionality
     const report = `Statueye Legal Analysis Report\n\nQuery: ${messages.find(m => m.type === "user")?.content}\n\nResults: ${legalResults.length} provisions found\n\n${legalResults.map(r => `${r.law}: ${r.description}`).join('\n\n')}`;
     const blob = new Blob([report], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -96,34 +123,48 @@ const ChatInterface = ({ selectedArea, language, onBack }: ChatInterfaceProps) =
             {language === "en" ? "Back" : "Atrás"}
           </Button>
           <div>
-            <h2 className="font-semibold text-gray-900">
-              {language === "en" ? "Legal Analysis" : "Análisis Legal"}
+            <h2 className="font-semibold text-gray-900 flex items-center space-x-2">
+              <span>{language === "en" ? "Legal Analysis" : "Análisis Legal"}</span>
+              {isOffline ? (
+                <WifiOff className="w-4 h-4 text-orange-600" />
+              ) : (
+                <Database className="w-4 h-4 text-green-600" />
+              )}
             </h2>
             <p className="text-sm text-gray-500 capitalize">{selectedArea.replace('-', ' ')}</p>
           </div>
         </div>
         
-        {legalResults.length > 0 && (
-          <Button onClick={handleDownloadReport} className="flex items-center space-x-2">
-            <Download className="w-4 h-4" />
-            <span>{language === "en" ? "Download Report" : "Descargar Informe"}</span>
-          </Button>
-        )}
+        <div className="flex items-center space-x-3">
+          <Badge variant={isOffline ? "destructive" : "default"}>
+            {isOffline 
+              ? (language === "en" ? "Offline Mode" : "Modo Sin Conexión")
+              : (language === "en" ? "Full Database" : "Base Completa")
+            }
+          </Badge>
+          
+          {legalResults.length > 0 && (
+            <Button onClick={handleDownloadReport} className="flex items-center space-x-2">
+              <Download className="w-4 h-4" />
+              <span>{language === "en" ? "Download Report" : "Descargar Informe"}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <Card className="p-6 bg-blue-50 border-blue-200">
+          <Card className={`p-6 ${isOffline ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'}`}>
             <div className="flex items-start space-x-3">
-              <Scale className="w-6 h-6 text-blue-600 mt-1" />
+              <Scale className={`w-6 h-6 mt-1 ${isOffline ? 'text-orange-600' : 'text-blue-600'}`} />
               <div>
-                <h3 className="font-semibold text-blue-900 mb-2">
+                <h3 className={`font-semibold mb-2 ${isOffline ? 'text-orange-900' : 'text-blue-900'}`}>
                   {language === "en" ? "Describe Your Legal Situation" : "Describe Su Situación Legal"}
                 </h3>
-                <p className="text-blue-700 text-sm">
+                <p className={`text-sm ${isOffline ? 'text-orange-700' : 'text-blue-700'}`}>
                   {language === "en" 
-                    ? "Tell me about your legal concern in your own words. I'll analyze it against relevant UK and EU legislation to identify potential violations and next steps."
-                    : "Cuénteme sobre su problema legal en sus propias palabras. Lo analizaré contra la legislación relevante del Reino Unido y la UE para identificar posibles violaciones y próximos pasos."}
+                    ? `Tell me about your legal concern. ${isOffline ? 'I\'ll analyze it using cached UK legislation (limited results).' : 'I\'ll analyze it against the complete UK legal database for comprehensive results.'}`
+                    : `Cuénteme sobre su problema legal. ${isOffline ? 'Lo analizaré usando legislación del Reino Unido en caché (resultados limitados).' : 'Lo analizaré contra la base de datos legal completa del Reino Unido para resultados integrales.'}`}
                 </p>
               </div>
             </div>
@@ -151,21 +192,29 @@ const ChatInterface = ({ selectedArea, language, onBack }: ChatInterfaceProps) =
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
               <p className="text-sm text-gray-600">
                 {language === "en" 
-                  ? "Analyzing legislation database..." 
-                  : "Analizando base de datos de legislación..."}
+                  ? `${isOffline ? 'Searching cached legislation...' : 'Analyzing complete UK legal database...'}` 
+                  : `${isOffline ? 'Buscando legislación en caché...' : 'Analizando la base de datos legal completa del Reino Unido...'}`}
               </p>
             </div>
           </Card>
         )}
 
         {legalResults.map((result, index) => (
-          <Card key={index} className="p-6 border-l-4 border-l-blue-600">
+          <Card key={index} className={`p-6 border-l-4 ${result.source === 'offline' ? 'border-l-orange-600' : 'border-l-blue-600'}`}>
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">{result.law}</h3>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  {result.confidence}% {language === "en" ? "Match" : "Coincidencia"}
-                </Badge>
+                <div className="flex items-center space-x-2">
+                  <Badge variant="secondary" className={`${result.confidence >= 90 ? 'bg-green-100 text-green-800' : result.confidence >= 80 ? 'bg-yellow-100 text-yellow-800' : 'bg-orange-100 text-orange-800'}`}>
+                    {result.confidence}% {language === "en" ? "Match" : "Coincidencia"}
+                  </Badge>
+                  <Badge variant={result.source === 'offline' ? 'destructive' : 'default'} className="text-xs">
+                    {result.source === 'offline' 
+                      ? (language === "en" ? "Cached" : "En Caché")
+                      : (language === "en" ? "Live Database" : "Base en Vivo")
+                    }
+                  </Badge>
+                </div>
               </div>
               <FileText className="w-5 h-5 text-gray-400" />
             </div>
